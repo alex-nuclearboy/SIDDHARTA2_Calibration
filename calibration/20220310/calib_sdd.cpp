@@ -11,8 +11,6 @@
 #include  "fitting_func.h"
 #include  "calib_sdd.h"
 
-
-
 void calib_sdd() {
 
   busNumber = 1;
@@ -317,6 +315,29 @@ void calib_sdd() {
   TAxis *axis = hEnergySDD->GetXaxis();
   axis->SetLimits(axis->GetXmin()*slope+offset, axis->GetXmax()*slope+offset);
 
+  hEnergySDD->SetAxisRange(0,25000,"X");
+
+  outfile= new TFile(Form("/home/nuclearboy/SIDDHARTA2/SIDDHARTA2_Calibration/calibration/20220310/files/hEnergySDD_bus%d_sdd%d.root",busNumber,sddNumber),"RECREATE");
+
+  outfile->cd();
+  hSDD->Write("hADC");
+  hEnergySDD->Write("hEnergy");
+  outfile->Close();
+
+  //new file with results
+  ofstream calib_file;
+  calib_file.open(Form("files/calib_bus%d_sdd%d.dat",busNumber,sddNumber), ios::trunc);
+  calib_file<<Form("%i %i %g %g %g %g",busNumber,sddNumber,slope,slope_err,offset,offset_err)<<endl;
+  calib_file.close();
+
+  //new file with results
+  ofstream parameters_file;
+  parameters_file.open(Form("files/parameters_bus%d_sdd%d.dat",busNumber,sddNumber), ios::trunc);
+  for (Int_t i=0; i<36; i++) {
+    parameters_file<<Form("%i %g %g",i, fitFuncTotal->GetParameter(i), fitFuncTotal->GetParError(i))<<endl;
+  }
+  parameters_file.close();
+
   hEnergySDD_fit = (TH1F*)hEnergySDD->Clone(Form("hEnergy_bus%d_sdd%d_fit",busNumber,sddNumber));
 
   fitFuncEnergyTotal = new TF1(Form("fitFuncEnergyTotal_%d_%d",busNumber,sddNumber),"gaus(0)+gaus(3)+gaus(6)+gaus(9)+gaus(12)+gaus(15)+expo(18)+pol1(20)",0,12000);
@@ -347,12 +368,6 @@ void calib_sdd() {
 
   Double_t chi2_E = (fitFuncEnergyTotal->GetChisquare())/(fitFuncEnergyTotal->GetNDF());
 
-  cout<<"N. points: = "<<fitFuncEnergyTotal->GetNumberFitPoints()<<endl;
-  cout<<"N. free param.: "<<fitFuncEnergyTotal->GetNumberFreeParameters()<<endl;
-  cout<<"NDf = "<<fitFuncEnergyTotal->GetNDF()<<endl;
-  cout<<"chi2 = "<<fitFuncEnergyTotal->GetChisquare()<<endl;
-  cout<<"chi2/NDf = "<<(fitFuncEnergyTotal->GetChisquare())/(fitFuncEnergyTotal->GetNDF())<<endl;
-
 /////////////////////////////////////////HISTOGRAMS/////////////////////////////////////////
 
   gStyle->SetOptStat(kFALSE);
@@ -376,7 +391,7 @@ void calib_sdd() {
   hSDD->GetXaxis()->SetLabelSize(0.04);
   //hSDD->SetAxisRange(1500,4500,"X");
   //hSDD->GetXaxis()->SetRangeUser(1500.,4500.);
-  hSDD->GetYaxis()->SetTitle("counts / channel");
+  hSDD->GetYaxis()->SetTitle("counts");
   hSDD->GetYaxis()->SetTitleSize(0.05);
   hSDD->GetYaxis()->SetTitleOffset(1.);
   hSDD->GetYaxis()->SetLabelSize(0.04);
@@ -619,7 +634,7 @@ void calib_sdd() {
   gLinearity->GetXaxis()->SetTitleOffset(1.);
   gLinearity->GetXaxis()->SetLabelSize(0.04);
   //gLinearity->GetXaxis()->SetRangeUser(1000.,5000.);
-  gLinearity->GetYaxis()->SetTitle("Energy [eV]");
+  gLinearity->GetYaxis()->SetTitle("energy [eV]");
   gLinearity->GetYaxis()->SetTitleSize(0.05);
   gLinearity->GetYaxis()->SetTitleOffset(1.1);
   gLinearity->GetYaxis()->SetLabelSize(0.04);
@@ -670,7 +685,7 @@ void calib_sdd() {
   gSDDenergy->GetXaxis()->SetTitleOffset(1.);
   gSDDenergy->GetXaxis()->SetLabelSize(0.04);
   gSDDenergy->GetXaxis()->SetRangeUser(2000.,12000.);
-  gSDDenergy->GetYaxis()->SetTitle("counts / channel");
+  gSDDenergy->GetYaxis()->SetTitle("counts");
   gSDDenergy->GetYaxis()->SetTitleSize(0.05);
   gSDDenergy->GetYaxis()->SetTitleOffset(1.);
   gSDDenergy->GetYaxis()->SetLabelSize(0.04);
@@ -733,14 +748,14 @@ void calib_sdd() {
 
   myCanvas[6] = new TCanvas;
 
-  hEnergySDD->SetTitle(Form("BUS: %d, SDD: %d",busNumber,sddNumber));
-  hEnergySDD->GetXaxis()->SetTitle("Energy [eV]");
+  hEnergySDD->SetTitle(Form("BUS: %d, SDD: %d, #chi^{2}/NDf: %f",busNumber,sddNumber,chi2_E));
+  hEnergySDD->GetXaxis()->SetTitle("energy [eV]");
   hEnergySDD->GetXaxis()->SetTitleSize(0.05);
   hEnergySDD->GetXaxis()->SetTitleOffset(1.);
   hEnergySDD->GetXaxis()->SetLabelSize(0.04);
   hEnergySDD->SetAxisRange(2000,12000,"X");
   //hEnergySDD->GetXaxis()->SetRangeUser(2800.,3700.);
-  hEnergySDD->GetYaxis()->SetTitle("counts / channel");
+  hEnergySDD->GetYaxis()->SetTitle("counts");
   hEnergySDD->GetYaxis()->SetTitleSize(0.05);
   hEnergySDD->GetYaxis()->SetTitleOffset(1.);
   hEnergySDD->GetYaxis()->SetLabelSize(0.04);

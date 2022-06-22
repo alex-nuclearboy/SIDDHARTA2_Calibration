@@ -18,6 +18,7 @@
 #include  <TStyle.h>
 
 TFile* f[2];
+TFile* outfile;
 
 Int_t busNumber,sddNumber;
 
