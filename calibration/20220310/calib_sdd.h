@@ -41,6 +41,7 @@ TF1   *fitFuncGaussFeKalphaStart,*fitFuncGaussFeKalpha;
 TF1   *fitFuncGaussCuKalphaStart,*fitFuncGaussCuKalpha,*fitFuncGaussCuKbetaStart,*fitFuncGaussCuKbeta;
 TF1   *fitFuncTailTiKalphaStart,*fitFuncTailTiKalpha,*fitFuncTailTiKbetaStart,*fitFuncTailTiKbeta;
 TF1   *fitFuncTailCuKalphaStart,*fitFuncTailCuKalpha,*fitFuncTailCuKbetaStart,*fitFuncTailCuKbeta;
+TF1   *fitFuncTailMnKalpha,*fitFuncTailFeKalpha;
 
 TF1   *fitFuncGaussTailTiKalphaStart,*fitFuncGaussTailTiKalpha,*fitFuncGaussTailTiKbetaStart,*fitFuncGaussTailTiKbeta;
 TF1   *fitFuncGaussTailCuKalphaStart,*fitFuncGaussTailCuKalpha,*fitFuncGaussTailCuKbetaStart,*fitFuncGaussTailCuKbeta;
