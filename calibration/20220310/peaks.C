@@ -1,14 +1,10 @@
-// Example to illustrate the peak finder (class TSpectrum).
-// This script generates a random number of gaussian peaks
-// on top of a linear background.
-// The position of the peaks is found via TSpectrum and injected
-// as initial values of parameters to make a global fit
-// To execute this example, do
-//  root > .x peaks.C  (generate 10 peaks by default)
-//  root > .x peaks.C++ (use the compiler)
-//  root > .x peaks.C++(30) (generates 30 peaks)
-//
-// Author: Rene Brun
+/***********************************************
+* SIDDHARTA-2 Experiment
+* Aleksander K.                 2022-07
+* Licensed under the Apache License, Version 2.0
+***********************************************/
+
+// Macro for SDDs calibration
 
 #include  <TROOT.h>
 #include  <Riostream.h>
@@ -29,100 +25,80 @@
 
 Int_t npeaks;
 Double_t findPeaks(Double_t *x, Double_t *par) {
-  Double_t result = par[0]+par[1]*x[0] + TMath::Exp(par[2]+par[3]*x[0]);
-  for (Int_t p=0; p<npeaks; p++) {
+  Double_t result = par[0]+par[1]*x[0] + TMath::Exp(par[2]+par[3]*x[0]); //background
+  for (Int_t p=0; p<npeaks; p++) { //gauss
     Double_t norm  = par[3*p+4];
     Double_t mean  = par[3*p+5];
     Double_t sigma = par[3*p+6];
-    result += norm*TMath::Gaus(x[0],mean,sigma);
+    result += norm*TMath::Gaus(x[0],mean,sigma); //background + gauss
   }
   return result;
 }
 
-void peaks(Int_t np=8) {
-   npeaks = np;
+void peaks(Int_t np=6) {
 
-   busNumber = 1;
-   sddNumber = 25;
+  npeaks = np;
 
-   //Read ROOT file
-   f[0] = new TFile("../../rootfiles/SIDDHARTA2_xray/output/20220310/hist_20220310_1900_0310_2000_xray_25kv_70ua_tube1_p1.root","READ");
+  busNumber = 1;
+  sddNumber = 25;
 
-   hSDD = (TH1F*)f[0]->Get(Form("bus%d_sdd%d",busNumber,sddNumber));  //take SDD histograms
-   hCrosstalk = (TH1F*)f[0]->Get(Form("bus%d_sdd%d_crosstalk",busNumber,sddNumber));  //take crosstalk histograms
+  // Read ROOT file
+  f[0] = new TFile("../../rootfiles/SIDDHARTA2_xray/output/20220310/hist_20220310_1900_0310_2000_xray_25kv_70ua_tube1_p1.root","READ");
 
-   //hSDD->Rebin(4);
-   hSDD_copy = (TH1F*)hSDD->Clone(Form("hADC_bus%d_sdd%d_copy",busNumber,sddNumber));
-   hSDD_copy->Rebin(4);
-   hSDD_fit = (TH1F*)hSDD_copy->Clone(Form("hADC_bus%d_sdd%d_fit",busNumber,sddNumber));
+  // Take SDDs histograms
+  hSDD = (TH1F*)f[0]->Get(Form("bus%d_sdd%d",busNumber,sddNumber));
+  hCrosstalk = (TH1F*)f[0]->Get(Form("bus%d_sdd%d_crosstalk",busNumber,sddNumber));
 
-   hEnergySDD = (TH1F*)hSDD->Clone(Form("hEnergy_bus%d_sdd%d",busNumber,sddNumber));
+  hSDD_copy = (TH1F*)hSDD->Clone(Form("hADC_bus%d_sdd%d_copy",busNumber,sddNumber));
+  hSDD_copy->Rebin(4);
+  hSDD_fit = (TH1F*)hSDD_copy->Clone(Form("hADC_bus%d_sdd%d_fit",busNumber,sddNumber));
 
-/*
-   TH1F *h = new TH1F("h","test",500,0,1000);
-   //generate n peaks at random
-   Double_t par[3000];
-   par[0] = 0.8;
-   par[1] = -0.6/1000;
-   Int_t p;
-   for (p=0;p<npeaks;p++) {
-      par[3*p+2] = 1;
-      par[3*p+3] = 10+gRandom->Rndm()*980;
-      par[3*p+4] = 3+2*gRandom->Rndm();
-   }
-   TF1 *f = new TF1("f",fpeaks,0,1000,2+3*npeaks);
-   f->SetNpx(1000);
-   f->SetParameters(par);
-   TCanvas *c1 = new TCanvas("c1","c1",10,10,1000,900);
-   c1->Divide(1,2);
-   c1->cd(1);
-   h->FillRandom("f",200000);
-   h->Draw();
-   TH1F *h2 = (TH1F*)h->Clone("h2");
-*/
+  hEnergySDD = (TH1F*)hSDD->Clone(Form("hEnergy_bus%d_sdd%d",busNumber,sddNumber));
 
-Double_t par[100];
+  //// Search for peaks ////
 
-hSDD_copy->SetAxisRange(1700,3700,"X");
-hSDD_fit->SetAxisRange(1700,3700,"X");
+  Double_t par[100];
 
-   //Use TSpectrum to find the peak candidates
-   TSpectrum *s = new TSpectrum(2*npeaks);
-   Int_t nfound = s->Search(hSDD_fit,12,"nobackground",0.0065);
-   printf("Found %d candidate peaks to fitn",nfound);
-   //c1->Update();
-   //c1->cd(2);
+  hSDD_copy->SetAxisRange(1700,3700,"X");
+  hSDD_fit->SetAxisRange(1700,3700,"X");
 
-   //estimate linear background
-   TF1 *fline = new TF1("fline",fitBkgndFunc,1500,4500,4);
-   hSDD_fit->Fit("fline","qn");
-   //Loop on all found peaks. Eliminate peaks at the background level
-   par[0] = fline->GetParameter(0);
-   par[1] = fline->GetParameter(1);
-   par[2] = fline->GetParameter(2);
-   par[3] = fline->GetParameter(3);
-   npeaks = 0;
-   Double_t *xpeaks = s->GetPositionX();
-   for (Int_t p=0;p<nfound;p++) {
-      Float_t xp = xpeaks[p];
-      Int_t bin = hSDD_copy->GetXaxis()->FindBin(xp);
-      Float_t yp = hSDD_copy->GetBinContent(bin);
-      if (yp-TMath::Sqrt(yp) < fline->Eval(xp)) continue;
-      par[3*npeaks+4] = yp;
-      par[3*npeaks+5] = xp;
-      par[3*npeaks+6] = 15;
-      npeaks++;
-   }
-   printf("Found %d useful peaks to fitn",npeaks);
-   printf("Now fitting: Be patientn");
-   TF1 *fit = new TF1("fit",findPeaks,1500,4500,4+3*npeaks);
-   //TVirtualFitter::SetDefaultFitter("Minuit2");  //default is Minuit
-   //TVirtualFitter::Fitter(hSDD_fit,10+3*npeaks); //we may have more than the default 25 parameters
-   fit->SetParameters(par);
-   fit->SetNpx(1000);
-   hSDD_fit->Fit("fit");
-   cout<<"chi2/NDf: "<<(fit->GetChisquare())/(fit->GetNDF())<<endl;
+  // Use TSpectrum to find the peak candidates
+  TSpectrum *s = new TSpectrum(2*npeaks);
+  Int_t nfound = s->Search(hSDD_fit,12,"nobackground",0.0065);
+  cout<<Form("Found %d candidate peaks to fitn",nfound)<<endl;
 
+  // Estimate background
+  TF1 *fBkgnd = new TF1("fBkgnd",fitBkgndFunc,1500,4500,4);
+  hSDD_fit->Fit("fBkgnd","qn");
+
+  // Loop on all found peaks. Eliminate peaks at the background level
+  par[0] = fBkgnd->GetParameter(0);
+  par[1] = fBkgnd->GetParameter(1);
+  par[2] = fBkgnd->GetParameter(2);
+  par[3] = fBkgnd->GetParameter(3);
+  npeaks = 0;
+  Double_t *xpeaks = s->GetPositionX();
+
+  // Evaluation of the centroids for each single peak
+  for (Int_t p=0; p<nfound; p++) {
+    Float_t xp = xpeaks[p];
+    Int_t bin = hSDD_copy->GetXaxis()->FindBin(xp);
+    Float_t yp = hSDD_copy->GetBinContent(bin);
+    if (yp-TMath::Sqrt(yp) < fBkgnd->Eval(xp)) continue;
+    par[3*npeaks+4] = yp;
+    par[3*npeaks+5] = xp;
+    par[3*npeaks+6] = 15;
+    npeaks++;
+  }
+
+  cout<<Form("Found %d useful peaks to fitn",npeaks)<<endl;
+
+  TF1 *fit = new TF1("fit",findPeaks,1500,4500,4+3*npeaks);
+  fit->SetParameters(par);
+  fit->SetNpx(1000);
+  hSDD_fit->Fit("fit");
+
+  cout<<"chi2/NDf: "<<(fit->GetChisquare())/(fit->GetNDF())<<endl;
 
 //////////////////////////////////////////////////////
 
@@ -156,11 +132,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
 
   fitFuncTotal->SetParLimits(24,0.01,0.15);
   fitFuncTotal->SetParLimits(25,20,200);
-/*
-  for (Int_t k = 0; k < 6; k++) {
-    fitFuncTotal->SetParameter(k+18,fit->GetParameter(k+16));
-  }
-*/
+
   for (Int_t k = 0; k < 4; k++) {
     fitFuncTotal->SetParameter(k+26,fit->GetParameter(k));
   }
@@ -169,10 +141,19 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
 
   hSDD_fit->Fit(fitFuncTotal,"","",1500,4500);
 
-
-
   //////////////////////////////
 
+  hResidual = new TH1F("hResidual","",2500,0,10000);
+  hSDD_copy->SetAxisRange(0,10000,"X");
+
+  for (Int_t i=1; i<2501; i++) {
+
+    Double_t sg = TMath::Sqrt( fitFuncTotal->GetParameter(24)*3.71*i + TMath::Power(fitFuncTotal->GetParameter(25)/2.35,2) );
+    Double_t diff = hSDD_copy->GetBinContent(i) - fitFuncTotal->Eval(hSDD_copy->GetBinCenter(i));
+    hResidual->SetBinContent(i,diff/sg);
+  }
+
+  //////////////////////////////
 
   // Parameters from the global function
 
@@ -181,6 +162,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncGaussCuKalpha->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussCuKalpha->SetParameter(2,fitFuncTotal->GetParameter(1));
   fitFuncGaussCuKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussCuKalpha->SetNpx(1000);
 
   fitFuncTailCuKalpha = new TF1(Form("fitFuncTailCuKalpha_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailCuKalpha->SetParameter(0,(fitFuncTotal->GetParameter(0)*fitFuncTotal->GetParameter(2)));
@@ -188,12 +170,14 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailCuKalpha->SetParameter(2,fitFuncTotal->GetParameter(1));
   fitFuncTailCuKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailCuKalpha->SetParameter(4,fitFuncTotal->GetParameter(3));
+  fitFuncTailCuKalpha->SetNpx(1000);
 
   fitFuncGaussCuKbeta = new TF1(Form("fitFuncGaussCuKbeta_%d_%d",busNumber,sddNumber),fitGaussFunc,1500,4500,4);
   fitFuncGaussCuKbeta->SetParameter(0,fitFuncTotal->GetParameter(4));
   fitFuncGaussCuKbeta->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussCuKbeta->SetParameter(2,fitFuncTotal->GetParameter(5));
   fitFuncGaussCuKbeta->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussCuKbeta->SetNpx(1000);
 
   fitFuncTailCuKbeta = new TF1(Form("fitFuncTailCuKbeta_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailCuKbeta->SetParameter(0,(fitFuncTotal->GetParameter(4)*fitFuncTotal->GetParameter(6)));
@@ -201,6 +185,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailCuKbeta->SetParameter(2,fitFuncTotal->GetParameter(5));
   fitFuncTailCuKbeta->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailCuKbeta->SetParameter(4,fitFuncTotal->GetParameter(7));
+  fitFuncTailCuKbeta->SetNpx(1000);
 
   /////
 
@@ -209,6 +194,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncGaussTiKalpha->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussTiKalpha->SetParameter(2,fitFuncTotal->GetParameter(9));
   fitFuncGaussTiKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussTiKalpha->SetNpx(1000);
 
   fitFuncTailTiKalpha = new TF1(Form("fitFuncTailTiKalpha_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailTiKalpha->SetParameter(0,(fitFuncTotal->GetParameter(8)*fitFuncTotal->GetParameter(10)));
@@ -216,12 +202,14 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailTiKalpha->SetParameter(2,fitFuncTotal->GetParameter(9));
   fitFuncTailTiKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailTiKalpha->SetParameter(4,fitFuncTotal->GetParameter(11));
+  fitFuncTailTiKalpha->SetNpx(1000);
 
   fitFuncGaussTiKbeta = new TF1(Form("fitFuncGaussTiKbeta_%d_%d",busNumber,sddNumber),fitGaussFunc,1500,4500,4);
   fitFuncGaussTiKbeta->SetParameter(0,fitFuncTotal->GetParameter(12));
   fitFuncGaussTiKbeta->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussTiKbeta->SetParameter(2,fitFuncTotal->GetParameter(13));
   fitFuncGaussTiKbeta->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussTiKbeta->SetNpx(1000);
 
   fitFuncTailTiKbeta = new TF1(Form("fitFuncTailTiKbeta_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailTiKbeta->SetParameter(0,(fitFuncTotal->GetParameter(12)*fitFuncTotal->GetParameter(14)));
@@ -229,18 +217,21 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailTiKbeta->SetParameter(2,fitFuncTotal->GetParameter(13));
   fitFuncTailTiKbeta->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailTiKbeta->SetParameter(4,fitFuncTotal->GetParameter(15));
+  fitFuncTailTiKbeta->SetNpx(1000);
 
   fitFuncGaussMnKalpha = new TF1(Form("fitFuncGaussMnKalpha_%d_%d",busNumber,sddNumber),fitGaussFunc,1500,4500,4);
   fitFuncGaussMnKalpha->SetParameter(0,fitFuncTotal->GetParameter(16));
   fitFuncGaussMnKalpha->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussMnKalpha->SetParameter(2,fitFuncTotal->GetParameter(17));
   fitFuncGaussMnKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussMnKalpha->SetNpx(1000);
 
   fitFuncGaussFeKalpha = new TF1(Form("fitFuncGaussFeKalpha_%d_%d",busNumber,sddNumber),fitGaussFunc,1500,4500,4);
   fitFuncGaussFeKalpha->SetParameter(0,fitFuncTotal->GetParameter(20));
   fitFuncGaussFeKalpha->SetParameter(1,fitFuncTotal->GetParameter(24));
   fitFuncGaussFeKalpha->SetParameter(2,fitFuncTotal->GetParameter(21));
   fitFuncGaussFeKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
+  fitFuncGaussFeKalpha->SetNpx(1000);
 
   fitFuncTailMnKalpha = new TF1(Form("fitFuncTailMnKalpha_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailMnKalpha->SetParameter(0,fitFuncTotal->GetParameter(16)*fitFuncTotal->GetParameter(18));
@@ -248,6 +239,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailMnKalpha->SetParameter(2,fitFuncTotal->GetParameter(17));
   fitFuncTailMnKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailMnKalpha->SetParameter(4,fitFuncTotal->GetParameter(19));
+  fitFuncTailMnKalpha->SetNpx(1000);
 
   fitFuncTailFeKalpha = new TF1(Form("fitFuncTailFeKalpha_%d_%d",busNumber,sddNumber),fitTailFunc,1500,4500,5);
   fitFuncTailFeKalpha->SetParameter(0,fitFuncTotal->GetParameter(20)*fitFuncTotal->GetParameter(22));
@@ -255,7 +247,7 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   fitFuncTailFeKalpha->SetParameter(2,fitFuncTotal->GetParameter(21));
   fitFuncTailFeKalpha->SetParameter(3,fitFuncTotal->GetParameter(25));
   fitFuncTailFeKalpha->SetParameter(4,fitFuncTotal->GetParameter(23));
-
+  fitFuncTailFeKalpha->SetNpx(1000);
 
   /////
 
@@ -264,10 +256,22 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
     fitFuncBkgrnd->SetParameter(l,fitFuncTotal->GetParameter(l+26));
   }
 
+/////////////////////////////////////////HISTOGRAMS/////////////////////////////////////////
+
+  gStyle->SetOptStat(kFALSE);
+  gStyle->SetPalette(1,0);
+  gStyle->SetPadLeftMargin(0.10);
+  gStyle->SetPadRightMargin(0.05);
+  gStyle->SetPadBottomMargin(0.15);
+
+  gStyle->SetTitleFont(42,"XYZ");
+  gStyle->SetLabelFont(42,"XYZ");
+  gStyle->SetTextFont(42);
 
   //
   myCanvas[3] = new TCanvas;
   myCanvas[3]->SetLogy();
+  myCanvas[3]->SetGrid();
 
   hSDD_copy->SetTitle(Form("BUS: %d, SDD: %d",busNumber,sddNumber));
   hSDD_copy->GetXaxis()->SetTitle("ADC [channel]");
@@ -275,7 +279,6 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   hSDD_copy->GetXaxis()->SetTitleOffset(1.);
   hSDD_copy->GetXaxis()->SetLabelSize(0.04);
   hSDD_copy->SetAxisRange(1700,3700,"X");
-  //hSDD_copy->GetXaxis()->SetRangeUser(1700.,2400.);
   hSDD_copy->GetYaxis()->SetTitle("counts / 4 channel");
   hSDD_copy->GetYaxis()->SetTitleSize(0.05);
   hSDD_copy->GetYaxis()->SetTitleOffset(1.);
@@ -349,11 +352,68 @@ hSDD_fit->SetAxisRange(1700,3700,"X");
   myLegend[3]->SetFillStyle(1001); myLegend[3]->SetLineColor(1); myLegend[3]->SetFillColor(0); myLegend[3]->SetTextSize(0.037);
   myLegend[3]->AddEntry(hSDD, "Data", "l");
   myLegend[3]->AddEntry(fitFuncTotal, "Global fit function", "l");
+  myLegend[3]->AddEntry(fitFuncGaussTiKalpha, "Gaussian function", "l");
+  myLegend[3]->AddEntry(fitFuncTailTiKalpha, "Tail function", "l");
+  myLegend[3]->AddEntry(fitFuncBkgrnd, "Background", "l");
   myLegend[3]->Draw("same");
 
   myCanvas[3]->Print(Form("plots/hADC_Ylog_bus%d_sdd%d.png",busNumber,sddNumber), "png");
 
+  hResidual->SetMarkerStyle(20);
+  hResidual->SetMarkerSize(0.5);
+  //hResidual->GetXaxis()->SetRangeUser(1700,3700);
 
+  myCanvas[7] = new TCanvas();
 
+  TPad *pad1 = new TPad("pad1","pad1",0,0.33,1,1);
+  TPad *pad2 = new TPad("pad2","pad2",0,0,1,0.33);
+  pad1->SetBottomMargin(0.008);
+  pad1->SetBorderMode(0);
+  pad1->SetLogy();
+  pad1->SetGrid();
+  pad2->SetTopMargin(0.05);
+  pad2->SetBottomMargin(0.33);
+  //pad2->SetBorderMode(0);
+  pad2->SetGrid();
+  pad1->Draw();
+  pad2->Draw();
+  pad1->cd();
+
+  hSDD_copy->GetYaxis()->SetTitleOffset(0.8);
+  hSDD_copy->GetYaxis()->SetTitleSize(0.07);
+  hSDD_copy->GetYaxis()->SetLabelSize(0.06);
+  hSDD_copy->GetYaxis()->SetTitleOffset(0.67);
+
+  hSDD_copy->Draw();
+  fitFuncTotal->Draw("same");
+  fitFuncBkgrnd->Draw("same");
+  fitFuncGaussTiKalpha->Draw("same");
+  fitFuncGaussTiKbeta->Draw("same");
+  fitFuncTailTiKalpha->Draw("same");
+  fitFuncTailTiKbeta->Draw("same");
+  fitFuncGaussCuKalpha->Draw("same");
+  fitFuncGaussCuKbeta->Draw("same");
+  fitFuncTailCuKalpha->Draw("same");
+  fitFuncTailCuKbeta->Draw("same");
+  fitFuncGaussMnKalpha->Draw("same");
+  fitFuncTailMnKalpha->Draw("same");
+  fitFuncGaussFeKalpha->Draw("same");
+  fitFuncTailFeKalpha->Draw("same");
+  myLegend[3]->Draw("same");
+
+  pad2->cd();
+  hResidual->GetXaxis()->SetTitle("ADC [channel]");
+  hResidual->GetXaxis()->SetTitleSize(0.15);
+  hResidual->GetXaxis()->SetTitleOffset(1.);
+  hResidual->GetXaxis()->SetLabelSize(0.12);
+  hResidual->SetAxisRange(1700,3700,"X");
+  hResidual->GetYaxis()->SetTitle("residual / #sigma");
+  hResidual->GetYaxis()->SetTitleSize(0.15);
+  hResidual->GetYaxis()->SetTitleOffset(0.33);
+  hResidual->GetYaxis()->SetLabelSize(0.12);
+  hResidual->GetYaxis()->SetNdivisions(5,5,0, kTRUE);
+  hResidual->Draw("same p");
+
+  myCanvas[7]->Print(Form("plots/hADC_Ylog_res_bus%d_sdd%d.png",busNumber,sddNumber), "png");
 
 }

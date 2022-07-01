@@ -29,6 +29,7 @@ Double_t peakValue[10];
 TH1F  *hSDD,*hSDD_copy,*hSDD_fit;
 TH1F  *hCrosstalk;
 TH1F  *hEnergySDD,*hEnergySDD_fit;
+TH1F  *hResidual;
 
 TGraph  *gLinearity;
 TGraph  *gSDDenergy;
