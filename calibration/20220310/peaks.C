@@ -141,16 +141,17 @@ void peaks(Int_t np=6) {
 
   hSDD_fit->Fit(fitFuncTotal,"","",1500,4500);
 
+
   //////////////////////////////
 
   hResidual = new TH1F("hResidual","",2500,0,10000);
   hSDD_copy->SetAxisRange(0,10000,"X");
 
-  for (Int_t i=1; i<2501; i++) {
+  for (Int_t i=1; i<2500; i++) {
 
-    Double_t sg = TMath::Sqrt( fitFuncTotal->GetParameter(24)*3.71*i + TMath::Power(fitFuncTotal->GetParameter(25)/2.35,2) );
-    Double_t diff = hSDD_copy->GetBinContent(i) - fitFuncTotal->Eval(hSDD_copy->GetBinCenter(i));
-    hResidual->SetBinContent(i,diff/sg);
+    //Double_t sg = TMath::Sqrt( fitFuncTotal->GetParameter(24)*3.71*i + TMath::Power(fitFuncTotal->GetParameter(25)/2.35,2) );
+    Double_t diff = (hSDD_copy->GetBinContent(i)- fitFuncTotal->Eval( hSDD_copy->GetBinCenter(i) ) ) / hSDD_copy->GetBinError(i);
+    hResidual->SetBinContent(i,diff);
   }
 
   //////////////////////////////
@@ -255,6 +256,65 @@ void peaks(Int_t np=6) {
   for(int l=0; l<4; l++) {
     fitFuncBkgrnd->SetParameter(l,fitFuncTotal->GetParameter(l+26));
   }
+
+  //// Linearity ////
+  Double_t x[2], y[2], x_err[2];
+  x[0]=fitFuncGaussTiKalpha->GetMaximumX();
+  y[0]=4509;
+  x[1]=fitFuncGaussCuKalpha->GetMaximumX();
+  y[1]=8041;
+
+  gLinearity = new TGraph(2,x,y);
+  gLinearity->Fit("pol1");
+
+  Double_t slope = gLinearity->GetFunction("pol1")->GetParameter(1);
+  Double_t slope_err = gLinearity->GetFunction("pol1")->GetParError(1);
+  Double_t offset = gLinearity->GetFunction("pol1")->GetParameter(0);
+  Double_t offset_err = gLinearity->GetFunction("pol1")->GetParError(0);
+
+  TAxis *axis = hEnergySDD->GetXaxis();
+  axis->SetLimits(axis->GetXmin()*slope+offset, axis->GetXmax()*slope+offset);
+
+  hEnergySDD->SetAxisRange(0,25000,"X");
+
+  outfile= new TFile(Form("/home/nuclearboy/SIDDHARTA2/SIDDHARTA2_Calibration/calibration/20220310/files/hEnergySDD_bus%d_sdd%d.root",busNumber,sddNumber),"RECREATE");
+
+  outfile->cd();
+  hSDD->Write("hADC");
+  hEnergySDD->Write("hEnergy");
+  outfile->Close();
+
+  hEnergySDD_fit = (TH1F*)hEnergySDD->Clone(Form("hEnergy_bus%d_sdd%d_fit",busNumber,sddNumber));
+
+  fitFuncEnergyTotal = new TF1(Form("fitFuncEnergyTotal_%d_%d",busNumber,sddNumber),"gaus(0)+gaus(3)+gaus(6)+gaus(9)+gaus(12)+gaus(15)+expo(18)+pol1(20)",2000,12000);
+  fitFuncEnergyTotal->SetParameter(0,54.7);
+  fitFuncEnergyTotal->SetParameter(1,4508.);
+  fitFuncEnergyTotal->SetParameter(2,66.5);
+  fitFuncEnergyTotal->SetParameter(3,11.9);
+  fitFuncEnergyTotal->SetParameter(4,4925.);
+  fitFuncEnergyTotal->SetParameter(5,77.4);
+  fitFuncEnergyTotal->SetParameter(6,4.6);
+  fitFuncEnergyTotal->SetParameter(7,5895.);
+  fitFuncEnergyTotal->SetParameter(8,84.);
+  fitFuncEnergyTotal->SetParameter(9,6.);
+  fitFuncEnergyTotal->SetParameter(10,6395.);
+  fitFuncEnergyTotal->SetParameter(11,124.);
+  fitFuncEnergyTotal->SetParameter(12,364.6);
+  fitFuncEnergyTotal->SetParameter(13,8041.);
+  fitFuncEnergyTotal->SetParameter(14,78.5);
+  fitFuncEnergyTotal->SetParameter(15,65.);
+  fitFuncEnergyTotal->SetParameter(16,8905.);
+  fitFuncEnergyTotal->SetParameter(17,86.);
+  fitFuncEnergyTotal->SetParameter(18,-35.2);
+  fitFuncEnergyTotal->SetParameter(19,0.0030);
+  fitFuncEnergyTotal->SetParameter(20,1.46);
+  fitFuncEnergyTotal->SetParameter(21,-6.62e-05);
+
+  fitFuncEnergyTotal->SetNpx(1000);
+
+  hEnergySDD_fit->Fit(Form("fitFuncEnergyTotal_%d_%d",busNumber,sddNumber),"","",2000,12000);
+
+  Double_t chi2_E = (fitFuncEnergyTotal->GetChisquare())/(fitFuncEnergyTotal->GetNDF());
 
 /////////////////////////////////////////HISTOGRAMS/////////////////////////////////////////
 
@@ -399,7 +459,14 @@ void peaks(Int_t np=6) {
   fitFuncTailMnKalpha->Draw("same");
   fitFuncGaussFeKalpha->Draw("same");
   fitFuncTailFeKalpha->Draw("same");
-  myLegend[3]->Draw("same");
+  myLegend[7] = new TLegend(0.310, 0.600, 0.565, 0.900);
+  myLegend[7]->SetFillStyle(1001); myLegend[7]->SetLineColor(1); myLegend[7]->SetFillColor(0); myLegend[7]->SetTextSize(0.05);
+  myLegend[7]->AddEntry(hSDD, "Data", "l");
+  myLegend[7]->AddEntry(fitFuncTotal, "Global fit function", "l");
+  myLegend[7]->AddEntry(fitFuncGaussTiKalpha, "Gaussian function", "l");
+  myLegend[7]->AddEntry(fitFuncTailTiKalpha, "Tail function", "l");
+  myLegend[7]->AddEntry(fitFuncBkgrnd, "Background", "l");
+  myLegend[7]->Draw("same");
 
   pad2->cd();
   hResidual->GetXaxis()->SetTitle("ADC [channel]");
@@ -415,5 +482,80 @@ void peaks(Int_t np=6) {
   hResidual->Draw("same p");
 
   myCanvas[7]->Print(Form("plots/hADC_Ylog_res_bus%d_sdd%d.png",busNumber,sddNumber), "png");
+
+  //
+
+ myCanvas[4] = new TCanvas;
+
+ gLinearity->SetTitle(Form("BUS: %d, SDD: %d",busNumber,sddNumber));
+ gLinearity->GetXaxis()->SetTitle("ADC [channel]");
+ gLinearity->GetXaxis()->SetTitleSize(0.05);
+ gLinearity->GetXaxis()->SetTitleOffset(1.);
+ gLinearity->GetXaxis()->SetLabelSize(0.04);
+ //gLinearity->GetXaxis()->SetRangeUser(1000.,5000.);
+ gLinearity->GetYaxis()->SetTitle("energy [eV]");
+ gLinearity->GetYaxis()->SetTitleSize(0.05);
+ gLinearity->GetYaxis()->SetTitleOffset(1.1);
+ gLinearity->GetYaxis()->SetLabelSize(0.04);
+ gLinearity->GetYaxis()->SetRangeUser(4150,8500);
+
+ //gLinearity->SetLineWidth(2);
+ //gLinearity->SetLineColor(5);
+ gLinearity->SetMarkerStyle(20);
+ gLinearity->SetMarkerSize(1);
+ gLinearity->SetMarkerColor(1);
+ gLinearity->Draw();
+
+ TPaveText *descr = new TPaveText(2000.,7300,2500,8000);
+ TText *tl02 = descr->AddText(Form("offset = %.4f #pm %.4f",offset,offset_err));
+ TText *tl01 = descr->AddText(Form("slope = %.4f #pm %.4f",slope,slope_err));
+ descr->SetFillColor(0);
+ tl01->SetTextFont(42);
+ tl02->SetTextFont(42);
+ tl01->SetTextSize(0.04);
+ tl02->SetTextSize(0.04);
+ tl01->SetTextAlign(12);
+ tl02->SetTextAlign(12);
+ descr->Draw("same");
+
+ myCanvas[4]->Print(Form("plots/gLinearity_bus%d_sdd%d.png",busNumber,sddNumber), "png");
+
+ //
+
+  myCanvas[6] = new TCanvas;
+  myCanvas[6]->SetGrid();
+
+  hEnergySDD->SetTitle(Form("BUS: %d, SDD: %d, #chi^{2}/NDf: %f",busNumber,sddNumber,chi2_E));
+  hEnergySDD->GetXaxis()->SetTitle("energy [eV]");
+  hEnergySDD->GetXaxis()->SetTitleSize(0.05);
+  hEnergySDD->GetXaxis()->SetTitleOffset(1.);
+  hEnergySDD->GetXaxis()->SetLabelSize(0.04);
+  hEnergySDD->SetAxisRange(2000,20000,"X");
+  //hEnergySDD->GetXaxis()->SetRangeUser(2800.,3700.);
+  hEnergySDD->GetYaxis()->SetTitle("counts");
+  hEnergySDD->GetYaxis()->SetTitleSize(0.05);
+  hEnergySDD->GetYaxis()->SetTitleOffset(1.);
+  hEnergySDD->GetYaxis()->SetLabelSize(0.04);
+  //hEnergySDD->GetYaxis()->SetRangeUser(0.,1.05*hEnergySDD->GetMaximum());
+
+  hEnergySDD->SetLineWidth(1);
+  hEnergySDD->SetLineColor(1);
+  //hEnergySDD->SetMarkerStyle(21);
+  //hEnergySDD->SetMarkerColor(1);
+  //hEnergySDD->SetMarkerSize(0.7);
+  hEnergySDD->Draw();
+
+  fitFuncEnergyTotal->SetLineWidth(1);
+  fitFuncEnergyTotal->SetLineColor(2);
+  fitFuncEnergyTotal->Draw("same");
+
+  myLegend[6] = new TLegend(0.760, 0.768, 0.950, 0.900);
+  myLegend[6]->SetFillStyle(1001); myLegend[6]->SetLineColor(1); myLegend[6]->SetFillColor(0); myLegend[6]->SetTextSize(0.04);
+  myLegend[6]->AddEntry(gSDDenergy, "data", "l");
+  myLegend[6]->AddEntry(fitFuncEnergyTotal, "fit", "l");
+  myLegend[6]->Draw("same");
+
+  myCanvas[6]->Print(Form("plots/hEnergySDD_bus%d_sdd%d_test.png",busNumber,sddNumber), "png");
+
 
 }
