@@ -188,6 +188,7 @@ void peaksFinder() {
               ipeak0 = i0;
               ipeak1 = i1;
               ipeak2 = i2;
+
             }
             if(TestPassed) break;
           }
@@ -195,13 +196,16 @@ void peaksFinder() {
         }
         if(TestPassed) break;
       }
+      cout<<"peak#"<<ipeak0<<": "<<xadc[ipeak0]<<" => "<< xadc[ipeak0]*GPF+G0PF<<endl;
+      cout<<"peak#"<<ipeak1<<": "<<xadc[ipeak1]<<" => "<< xadc[ipeak1]*GPF+G0PF<<endl;
+      cout<<"peak#"<<ipeak2<<": "<<xadc[ipeak2]<<" => "<< xadc[ipeak2]*GPF+G0PF<<endl;
+
       float diff;
       float dMin=0.97;
       float dMax=1.03;
       float peakTiKa, peakTiKb, peakCuKa, peakCuKb, peakMnKa, peakFeKa;
       for(int k=0;k<nfound;k++){
         diff = xadc[k]*GPF+G0PF;
-        cout<<xadc[k]<<"  "<<diff<<endl;
         if (diff/eTi_KA > dMin && diff/eTi_KA < dMax ) {peakTiKa = xadc[k];} else
         if (diff/eTi_KB > dMin && diff/eTi_KB < dMax ) {peakTiKb = xadc[k];} else
         if (diff/eCu_KA > dMin && diff/eCu_KA < dMax ) {peakCuKa = xadc[k];} else
@@ -267,8 +271,10 @@ void peaksFinder() {
       fitFuncTotalN[iBUS][iSDD]->SetLineWidth(2);
       fitFuncTotalN[iBUS][iSDD]->Draw("same");
 
-      myCanvas[3]->Print(Form("plots2/hADC_Ylog_bus%d_sdd%d.png",iBUS,iSDD), "png");
+      //myCanvas[3]->Print(Form("plots2/hADC_Ylog_bus%d_sdd%d.png",iBUS,iSDD), "png");
     }
   }
+
+
 
 }
