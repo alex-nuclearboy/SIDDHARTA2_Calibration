@@ -382,6 +382,23 @@ void peakFinder(){
     }
   }
 */
+  
+  TCanvas* myCanvas[nBUS][4];
+
+  for(Int_t k=1;k<nBUS;k++) {
+    for(Int_t j=0;j<4;j++) {
+      myCanvas[k][j] = new TCanvas;
+      myCanvas[k][j]->Divide(4,4);  //column, line
+      for(Int_t i=1;i<17;i++) {
+        myCanvas[k][j]->cd(i);
+        if(!hADC[k][i+16*j]) continue;
+        hADC[k][i+16*j]->SetTitle(Form("BUS: %d, SDD: %d",k,i+16*j));
+        hADC[k][i+16*j]->Draw();
+      }
+      myCanvas[k][j]->Print(Form("plots/hADC_Ylog_bus%d_sdd%d_%d.png",k,j*16,16*(j+1)), "png");
+      myCanvas[k][j]->Print(Form("plots/hADC_Ylog_bus%d_sdd%d_%d.pdf",k,j*16,16*(j+1)), "pdf");
+    }
+  }
 
 
 }
